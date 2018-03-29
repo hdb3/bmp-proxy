@@ -12,10 +12,10 @@ import socket
 import multiprocessing
 
 from time import sleep
-from openbmp.forwarder.logger import init_mp_logger
+from logger import init_mp_logger
 
 
-class BMPWriter(multiprocessing.Process):
+class Sender(multiprocessing.Process):
     """ BMP Forwarder
 
         Pops messages from forwarder queue and transmits them to remote bmp collector.
@@ -41,9 +41,9 @@ class BMPWriter(multiprocessing.Process):
 
     def run(self):
         """ Override """
-        self.LOG = init_mp_logger("bmp_writer", self._log_queue)
+        self.LOG = init_mp_logger("sender", self._log_queue)
 
-        self.LOG.info("Running bmp_writer")
+        self.LOG.info("Running sender")
 
         self.connect()
 
@@ -68,7 +68,7 @@ class BMPWriter(multiprocessing.Process):
                                    msg.ROUTER_IP, msg.ROUTER_NAME)
                 else:
                     self.LOG.info("Not connected, attempting to reconnect")
-                    sleep(1)
+                    sleep(10)
                     self.connect()
 
         except KeyboardInterrupt:

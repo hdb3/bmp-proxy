@@ -6,14 +6,6 @@
 max_queue_size: 1000
 
 #
-# Local Kafka settings - BMP raw messages are read from this instance
-#
-kafka:
-  servers             : ['kafka-int.openbmp.org:9092']
-  client_id           : 'openbmp-forwarder'
-  group_id            : 'openbmp-forwarder'
-  offset_reset_largest: False
-
 #
 # Collector - Where to send the BMP forwarded messages
 #
@@ -46,17 +38,17 @@ logging:
       maxBytes: 20971520
       backupCount: 10
       encoding: utf8
-      filename: openbmp-forwarder.log
+      filename: bmp-proxy.log
 
   loggers:
     # BMP Consuemr log messages
-    bmp_consumer:
+    listener:
       level: INFO
       handlers: [file]
       propagate: no
 
     # BMP Writer log messages
-    bmp_writer:
+    sender:
       level: INFO
       handlers: [file]
       propagate: no

@@ -1,34 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""OpenBMP forwarder
 
-  Copyright (c) 2013-2015 Cisco Systems, Inc. and others.  All rights reserved.
-  This program and the accompanying materials are made available under the
-  terms of the Eclipse Public License v1.0 which accompanies this distribution,
-  and is available at http://www.eclipse.org/legal/epl-v10.html
-
-  .. moduleauthor:: Tim Evens <tievens@cisco.com>
-"""
-import getopt
 import sys
+import getopt
 import logging
-import yaml
+import yaml # requires sudo pip install pyyaml
 import time
 import signal
 
 from multiprocessing import Queue, Manager
 from logger import LoggerThread
-from bmp_consumer import BMPConsumer
-from forwarder_bmp import BMPWriter
+from listener import Listener
+from forwarder import Sender
 
 # Root logger
 LOG = None
 
 # Running flag for main process
 RUNNING = True
-
-# Default App name
-APP_NAME = "openbmp-forwarder"
 
 
 def signal_handler(signum, frame):
@@ -61,24 +50,6 @@ def load_config(cfg_filename, LOG):
 
     try:
         cfg = yaml.load(file(cfg_filename, 'r'))
-
-        # Validate the config and set defaults if undefined
-        if 'kafka' in cfg:
-            if 'servers' not in cfg['kafka']:
-                cfg['kafka']['servers'] = ['localhost:9092']
-            if 'client_id' not in cfg['kafka']:
-                cfg['kafka']['client_id'] = APP_NAME
-            if 'group_id' not in cfg['kafka']:
-                cfg['kafka']['group_id'] = APP_NAME
-            if 'offset_reset_largest' not in cfg['kafka']:
-                cfg['kafka']['offset_reset_largest'] = False
-
-        else:
-            cfg['kafka'] = {}
-            cfg['kafka']['servers'] = ['localhost:9092']
-            cfg['kafka']['client_id'] = APP_NAME
-            cfg['kafka']['group_id'] = APP_NAME
-            cfg['kafka']['offset_reset_largest'] = False
 
         if 'collector' in cfg:
             if 'host' not in cfg['collector']:
@@ -187,7 +158,6 @@ def main():
     cfg_dict = manager.dict()
     cfg_dict['max_queue_size'] = cfg['max_queue_size']
     cfg_dict['logging'] = cfg['logging']
-    cfg_dict['kafka'] = cfg['kafka']
     cfg_dict['collector'] = cfg['collector']
 
     # Setup signal handers
@@ -206,11 +176,11 @@ def main():
     forward_queue = manager.Queue(cfg_dict['max_queue_size'])
 
     # Start the BMP consumer process
-    proc_consumer = BMPConsumer(cfg_dict, forward_queue, log_queue)
+    proc_consumer = Listener(cfg_dict, forward_queue, log_queue)
     proc_consumer.start()
 
     # Start the BMP writer process
-    proc_writer = BMPWriter(cfg_dict, forward_queue, log_queue)
+    proc_writer = Sender(cfg_dict, forward_queue, log_queue)
     proc_writer.start()
 
     LOG.info("Threads started")

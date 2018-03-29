@@ -13,7 +13,7 @@ from logger import init_mp_logger
 #from openbmp.api.parsed.message import Collector
 #from openbmp.api.parsed.message import MsgBusFields
 
-class BMPConsumer(multiprocessing.Process):
+class Listener(multiprocessing.Process):
 
     def __init__(self, cfg, forward_queue, log_queue):
         """ Constructor
@@ -32,9 +32,9 @@ class BMPConsumer(multiprocessing.Process):
 
     def run(self):
         """ Override """
-        self.LOG = init_mp_logger("bmp_consumer", self._log_queue)
+        self.LOG = init_mp_logger("listener", self._log_queue)
 
-        self.LOG.info("Running bmp_consumer")
+        self.LOG.info("Running listener")
 
         # wait for config to load
         while not self.stopped():
@@ -44,7 +44,7 @@ class BMPConsumer(multiprocessing.Process):
 
         try:
 
-            proxy_port = self._cfg['proxy']['proxy_port'])
+            proxy_port = self._cfg['proxy']['proxy_port']
             self.LOG.info("listening to %d " % proxy_port)
 
             rcvsock = socket.socket( socket.AF_INET, socket.SOCK_STREAM)
