@@ -1,12 +1,22 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function
+import pprint
 import multiprocessing
 import socket
 import copy
 import time
 import re
 import sys
+from bgpparse import *
+from bmpparse import *
 
 from logger import init_mp_logger
+## from eprint import eprint
+
+MAXM = 0x1000000
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
 
 #from openbmp.api.parsed.message import Message
 #from openbmp.api.parsed.message import Router
@@ -16,12 +26,7 @@ from logger import init_mp_logger
 class Listener(multiprocessing.Process):
 
     def __init__(self, cfg, forward_queue, log_queue):
-        """ Constructor
-
-            :param cfg:             Configuration dictionary
-            :param forward_queue:   Output for BMP raw message forwarding
-            :param log_queue:       Logging queue - sync logging
-        """
+        eprint("Initialising listener")
         multiprocessing.Process.__init__(self)
         self._stop = multiprocessing.Event()
 
@@ -33,35 +38,39 @@ class Listener(multiprocessing.Process):
     def run(self):
         """ Override """
         self.LOG = init_mp_logger("listener", self._log_queue)
-
         self.LOG.info("Running listener")
+        eprint("Running listener")
 
         # wait for config to load
-        while not self.stopped():
-            if self._cfg and 'proxy' in self._cfg:
-                break
+        ### while not self.stopped():
+            ### pass
+        if not ( self._cfg and 'listener' in self._cfg):
+            sys.exit("could not load listener configuration")
 
 
         try:
 
-            proxy_port = self._cfg['proxy']['proxy_port']
-            self.LOG.info("listening to %d " % proxy_port)
+            port = self._cfg['listener']['port']
+            self.LOG.info("listening to %d " % port)
+            eprint("listening to %d " % port)
 
             rcvsock = socket.socket( socket.AF_INET, socket.SOCK_STREAM)
-            rcvsock.bind(('', proxy_port))
+            rcvsock.bind(('', port))
             #rcvsock.bind(('', 5001))
             rcvsock.listen(1)
             while not self.stopped():
                 (clientsocket, address) = rcvsock.accept()
-                print("connection received from %s " % address)
+                eprint("connection received from " , address)
                 while not self.stopped():
-                    msg = clientsocket.recv(1,0)
-                    print("msg received with length %d " % len(msg))
+                    msg = clientsocket.recv(MAXM) # BGP max message size is 4096......
+                    if len(msg) > 65535:
+                        eprint("*****! msg received with length %d " % len(msg))
+                    assert MAXM > len(msg)
                     if 0 == len(msg):
                         break
                     else:
-                        self.process_msg(m)
-                print("%s disconnected " % address)
+                        self.process_msg(msg)
+                eprint("%s disconnected " % address)
 
             prev_ts = time.time()
 
@@ -77,4 +86,12 @@ class Listener(multiprocessing.Process):
         return self._stop.is_set()
 
     def process_msg(self, msg):
-            pass
+        bmpmsg = BMP_message(msg)
+        ## pprint.pprint(bmpmsg)
+        if bmpmsg.msg_type == BMP_Statistics_Report:
+            eprint("BMP stats report rcvd, length %d" % len(msg))
+        elif bmpmsg.msg_type == BMP_Route_Monitoring:
+            bgpmsg = bmpmsg.bmp_RM_bgp_message
+            eprint("BMP RM rcvd, BGP msg type was %d, length %d" % (bgpmsg.bgp_type,len(msg)))
+        else:
+            eprint("BMP non RM rcvd, BmP msg type was %d, length %d" % (bmpmsg.msg_type,len(msg)))

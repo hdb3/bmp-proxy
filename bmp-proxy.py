@@ -1,6 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/python2
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import sys
 import getopt
 import logging
@@ -31,39 +32,45 @@ def signal_handler(signum, frame):
     if LOG:
         LOG.info("Caught signal %d, exiting", signum)
     else:
-        print "Caught signal %d, exiting" % signum
+        eprint("Caught signal %d, exiting" % signum)
 
     RUNNING = False
 
 
 def load_config(cfg_filename, LOG):
-    """ Load and validate the configuration from YAML
-
-        Some defaults are applied if any settings are missing.
-
-        :param cfg_filename:    Configuration filename to load
-        :param LOG:             logger
-
-        :return: Configuration dictionary is returned
-    """
     cfg = {}
 
     try:
         cfg = yaml.load(file(cfg_filename, 'r'))
+
+        if 'listener' in cfg:
+            if 'port' not in cfg['listener']:
+                if LOG:
+                    LOG.error("Configuration is missing 'port' in listener section")
+                else:
+                    print("Configuration is missing 'port' in listener section")
+                sys.exit(2)
+
+        else:
+            if LOG:
+                LOG.error("Configuration is missing 'listener' section.")
+            else:
+                print("Configuration is missing 'listener' section.")
+            sys.exit(2)
 
         if 'collector' in cfg:
             if 'host' not in cfg['collector']:
                 if LOG:
                     LOG.error("Configuration is missing 'host' in collector section")
                 else:
-                    print ("Configuration is missing 'host' in collector section")
+                    print("Configuration is missing 'host' in collector section")
                 sys.exit(2)
 
             if 'port' not in cfg['collector']:
                 if LOG:
                     LOG.error("Configuration is missing 'port' in collector section, using default of 5000")
                 else:
-                    print ("Configuration is missing 'port' in collector section, using default of 5000")
+                    print("Configuration is missing 'port' in collector section, using default of 5000")
 
                 cfg['collector']['port'] = 5000
 
@@ -71,21 +78,21 @@ def load_config(cfg_filename, LOG):
             if LOG:
                 LOG.error("Configuration is missing 'collector' section.")
             else:
-                print ("Configuration is missing 'collector' section.")
+                print("Configuration is missing 'collector' section.")
             sys.exit(2)
 
         if 'logging' not in cfg:
             if LOG:
                 LOG.error("Configuration is missing 'logging' section.")
             else:
-                print ("Configuration is missing 'logging' section.")
+                print("Configuration is missing 'logging' section.")
             sys.exit(2)
 
-    except (IOError, yaml.YAMLError), e:
-        print "Failed to load mapping config file '%s': %r" % (cfg_filename, e)
+    except (IOError, yaml.YAMLError) as e:
+        print("Failed to load mapping config file '%s': %r" % (cfg_filename, e))
         if hasattr(e, 'problem_mark'):
             mark = e.problem_mark
-            print ("error on line: %s, column: %s" % (mark.line+1, mark.column+1))
+            print("error on line: %s, column: %s" % (mark.line+1, mark.column+1))
 
         sys.exit(2)
 
@@ -98,14 +105,14 @@ def usage(prog):
 
         :param prog:  Program name
     """
-    print ""
-    print "Usage: %s [OPTIONS]" % prog
-    print ""
+    print("")
+    print("Usage: %s [OPTIONS]" % prog)
+    print("")
 
-    print "OPTIONS:"
-    print "  -h, --help".ljust(30) + "Print this help menu"
-    print "  -c, --config".ljust(30) + "Config filename (default is %s/etc/openbmp-forwarder.yml)" % sys.prefix
-    print ""
+    print("OPTIONS:")
+    print("  -h, --help".ljust(30) + "Print this help menu")
+    print("  -c, --config".ljust(30) + "Config filename (default is %s/etc/openbmp-forwarder.yml)" % sys.prefix)
+    print("")
 
 
 def parse_cmd_args(argv):
@@ -139,7 +146,7 @@ def parse_cmd_args(argv):
                 sys.exit(1)
 
     except getopt.GetoptError as err:
-        print str(err)  # will print something like "option -a not recognized"
+        print(str(err))  # will print something like "option -a not recognized")
         usage(argv[0])
         sys.exit(2)
 
@@ -159,6 +166,7 @@ def main():
     cfg_dict['max_queue_size'] = cfg['max_queue_size']
     cfg_dict['logging'] = cfg['logging']
     cfg_dict['collector'] = cfg['collector']
+    cfg_dict['listener'] = cfg['listener']
 
     # Setup signal handers
     signal.signal(signal.SIGTERM, signal_handler)
@@ -192,7 +200,7 @@ def main():
             time.sleep(3)
 
         except KeyboardInterrupt:
-            print "\nStop requested by user"
+            print("\nStop requested by user")
             RUNNING = False
             break
 
