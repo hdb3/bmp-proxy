@@ -23,6 +23,8 @@ BGP_TYPE_CODE_MULTI_EXIT_DISC = 4
 BGP_TYPE_CODE_LOCAL_PREF = 5
 BGP_TYPE_CODE_ATOMIC_AGGREGATE = 6
 BGP_TYPE_CODE_AGGREGATOR = 7
+BGP_TYPE_CODE_COMMUNITIES = 8
+BGP_TYPE_CODE_AS4_PATH = 17
 BGP_Attribute_Flags_Optional = 0x80 # 1 << 7
 BGP_Attribute_Flags_Transitive = 0x40 # 1 << 6
 BGP_Attribute_Flags_Partial = 0x20 # 1 << 5
@@ -128,43 +130,51 @@ class BGP_message:
 
 
     def process_path_attributes(self,attributes):
-        self.attributes = self.get_attributes(attributes)
-        self.parse_attributes(self.attributes)
         
-    def get_attributes(self,attributes):
-        if len(attributes) == 0:
-            return []
-        attr_flags = struct.unpack_from('!B', attributes, offset=0)[0]
-        attr_type_code = struct.unpack_from('!B', attributes, offset=1)[0]
-        extended_length = bool(attr_flags & BGP_Attribute_Flags_Extended_Length)
-        if extended_length:
-            length = struct.unpack_from('!H', attributes, offset=1)[0]
-            attribute = attributes[3:3+length]
-            tail = attributes[3+length:]
-        else:
-            length = struct.unpack_from('!B', attributes, offset=1)[0]
-            attribute = attributes[2:2+length]
-            tail = attributes[2+length:]
-        return [(attr_flags,attr_type_code,attribute)] + self.get_attributes(tail)
+        offset = 0
+        attributes_len = len(attributes)
+        attr_count = 0
+        while offset > attributes_len:
+            attr_flags = struct.unpack_from('!B', attributes, offset=0)[0]
+            attr_type_code = struct.unpack_from('!B', attributes, offset=1)[0]
+
+            extended_length = bool(attr_flags & BGP_Attribute_Flags_Extended_Length)
+            if extended_length:
+                length = struct.unpack_from('!H', attributes, offset=1)[0]
+                quantum = 3
+            else:
+                length = struct.unpack_from('!B', attributes, offset=1)[0]
+                quantum = 2
+
+            attribute = attributes[offset+quantum:offset+length+quantum]
+            offset += length+quantum
+
+            attr_count += 1
+            try:
+                self.parse_attribute(attr_flags,attr_type_code,attribute)
+            except e:
+                eprint("++failed to parse attribute %d at offset %d (%x,%x) %s (%s)" % (attr_count,offset,attr_flags,attr_type_code,e,hexlify(attribute)))
+            # TODO - check that all of the mandatory attributes are present
 
 
-    def parse_attributes(self,attrs):
-        if len(attrs) == 0:
-            pass
-        else:
-            self.parse_attribute(attrs[0])
-            self.parse_attributes(attrs[1:])
-
-
-    def parse_attribute(self,(flags,code,attr)):
+    def parse_attribute(self,flags,code,attr):
 
         def get_path_ases(as_list):
-            if len(as_list) < 2:
-                return []
-            else:
-                return [struct.unpack_from('!H', as_list, offset=0)[0]] + get_path_ases(as_list[2:])
+            offset = 0
+            mylist = []
+            while offset < len(as_list):
+                mylist.append(struct.unpack_from('!H', as_list, offset=offset)[0])
+                offset += 2
+            return mylist
 
-        ## assert code > 0 and code <= BGP_TYPE_CODE_AGGREGATOR
+        def get_path_as4s(as_list):
+            offset = 0
+            mylist = []
+            while offset < len(as_list):
+                mylist.append(struct.unpack_from('!I', as_list, offset=offset)[0])
+                offset += 4
+            return mylist
+
         attr_len = len(attr)
         if (code==BGP_TYPE_CODE_ORIGIN):
             assert attr_len == 1
@@ -173,8 +183,8 @@ class BGP_message:
             path_segment_type = struct.unpack_from('!B', attr, offset=0)[0]
             path_segment_length = struct.unpack_from('!B', attr, offset=1)[0]
             assert attr_len == 2 + 2*path_segment_length
-            ases = get_path_ases(attr[2:])
-            self.attribute[BGP_TYPE_CODE_AS_PATH] += [(path_segment_type,ases)]
+            ases = get_path_ases(attr[2:attr_len])
+            self.attribute[BGP_TYPE_CODE_AS_PATH].append((path_segment_type,ases))
         elif (code==BGP_TYPE_CODE_NEXT_HOP):
             assert attr_len == 4
             self.attribute[BGP_TYPE_CODE_NEXT_HOP] = struct.unpack_from('!I', attr, offset=0)[0]
@@ -190,8 +200,18 @@ class BGP_message:
         elif (code==BGP_TYPE_CODE_AGGREGATOR):
             assert attr_len == 6
             self.attribute[BGP_TYPE_CODE_AGGREGATOR] = (struct.unpack_from('!H', attr, offset=0)[0],struct.unpack_from('!I', attr, offset=4)[0])
+        elif (code==BGP_TYPE_CODE_COMMUNITIES):
+            assert attr_len > 0
+            # TODO - don't tyr to unpack the community string yet.....
+            self.attribute[BGP_TYPE_CODE_COMMUNITIES] = attr[2:attr_len]
+        elif (code==BGP_TYPE_CODE_AS4_PATH):
+            path_segment_type = struct.unpack_from('!B', attr, offset=0)[0]
+            path_segment_length = struct.unpack_from('!B', attr, offset=1)[0]
+            assert attr_len == 2 + 4*path_segment_length
+            ases = get_path_as4s(attr[2:attr_len])
+            self.attribute[BGP_TYPE_CODE_AS4_PATH].append((path_segment_type,ases))
         else:
-            sys.stderr.write("unknown attribute %d" % code)
+            assert False
 
     def parse_bgp_notification(self,msg):
         pass
