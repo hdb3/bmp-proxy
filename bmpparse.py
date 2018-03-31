@@ -6,6 +6,9 @@
 import struct
 import sys
 from bgpparse import *
+def eprint(s):
+    sys.stderr.write(s+'\n')
+
 
 BMP_Route_Monitoring = 0
 BMP_Statistics_Report = 1
@@ -28,7 +31,7 @@ class BMP_message:
 
 
         if 6 < self.msg_type:
-            sys.stderr.write("msg_type out of range %d" % self.msg_type)
+            eprint("msg_type out of range %d" % self.msg_type)
             ## sys.exit()
             return None
 
@@ -50,3 +53,34 @@ class BMP_message:
 
         if (self.msg_type == BMP_Route_Monitoring):
             self.bmp_RM_bgp_message = BGP_message(msg[48:])
+
+def get_BMP_messages(msg):
+        msg_len  = len(msg)
+        offset = 0
+        msgs = []
+        while offset < msg_len:
+            if msg_len - offset > 5:
+                version  = struct.unpack_from('!B', msg, offset=offset)[0]
+                length   = struct.unpack_from('!I', msg, offset=offset+1)[0]
+                msg_type = struct.unpack_from('!B', msg, offset=offset+5)[0]
+            else:
+                version  = 0xff
+                length   = 0
+                msg_type = 0xff
+
+            if msg_len >= length + offset and 3 == self.version and msg_type < 7:
+                msgs.append(offset,length)
+                offset += length
+            else:
+                eprint("-- error parsing BMP messages (%d:%d:%d:%d)" % (len(msgs,msg_len,offset,length)))
+                return []
+
+        # now process each seprate chunk as a BMP message
+        bmp_msgs = []
+        if len(msgs) > 1:
+            eprint("--multipart BMP message with %d chunks" % len(msgs))
+        for (offset,length) in msgs:
+            if len(msgs) > 1:
+                eprint("--multipart BMP chunk at (%d :%d)" % (offset,length))
+            bmp_msgs.append(BMP_message(msg[offset:offset+length]))
+        return bmp_msgs

@@ -22,7 +22,6 @@ MAXM = 0x1000000
 class Listener(multiprocessing.Process):
 
     def __init__(self, cfg, forward_queue, log_queue):
-        print("Initialising listener")
         multiprocessing.Process.__init__(self)
         self._stop = multiprocessing.Event()
 
@@ -35,7 +34,6 @@ class Listener(multiprocessing.Process):
         """ Override """
         self.LOG = init_mp_logger("listener", self._log_queue)
         self.LOG.info("Running listener")
-        print("Running listener")
 
         # wait for config to load
         ### while not self.stopped():
@@ -48,11 +46,9 @@ class Listener(multiprocessing.Process):
 
             port = self._cfg['listener']['port']
             self.LOG.info("listening to %d " % port)
-            print("listening to %d " % port)
 
             rcvsock = socket.socket( socket.AF_INET, socket.SOCK_STREAM)
             rcvsock.bind(('', port))
-            #rcvsock.bind(('', 5001))
             rcvsock.listen(1)
             max_msg_len = 0
             while not self.stopped():
@@ -85,11 +81,10 @@ class Listener(multiprocessing.Process):
 
     def process_msg(self, msg):
         bmpmsg = BMP_message(msg)
-        ## pprint.pprint(bmpmsg)
         if bmpmsg.msg_type == BMP_Statistics_Report:
-            print("BMP stats report rcvd, length %d" % len(msg))
+            print("-- BMP stats report rcvd, length %d" % len(msg))
         elif bmpmsg.msg_type == BMP_Route_Monitoring:
             bgpmsg = bmpmsg.bmp_RM_bgp_message
-            print("BMP RM rcvd, length %d" % len(msg))
+            print("-- BMP RM rcvd, length %d" % len(msg))
         else:
-            print("BMP non RM rcvd, BmP msg type was %d, length %d" % (bmpmsg.msg_type,len(msg)))
+            print("-- BMP non RM rcvd, BmP msg type was %d, length %d" % (bmpmsg.msg_type,len(msg)))

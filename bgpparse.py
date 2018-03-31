@@ -41,13 +41,14 @@ class BGP_message:
         assert self.bgp_length > 18 and self.bgp_length <= msg_len
         self.bgp_type = struct.unpack_from('!B', msg, offset=18)[0]
         assert self.bgp_type > 0 and self.bgp_type < 5
+        eprint( "++ BGP message rcvd length %d type %d" % (self.bgp_length,self.bgp_type))
 
         if self.bgp_type == BGP_UPDATE:
-            self.parse_bgp_update(msg[19:])
+            self.parse_bgp_update(msg[19:self.bgp_length])
         elif self.bgp_type == BGP_OPEN:
-            self.parse_bgp_open(msg[19:])
+            self.parse_bgp_open(msg[19:self.bgp_length])
         elif self.bgp_type == BGP_NOTIFICATION:
-            self.parse_bgp_notification(msg[19:])
+            self.parse_bgp_notification(msg[19:self.bgp_length])
 
     def parse_bgp_open(self,msg):
         self.bgp_open_version = struct.unpack_from('!B', msg, offset=0)[0]
@@ -68,8 +69,8 @@ class BGP_message:
         self.process_withdrawn_routes(msg[2:2+withdrawn_routes_length])
         path_attribute_length = struct.unpack_from('!H', msg, offset=withdrawn_routes_length+2)[0]
         assert lm > withdrawn_routes_length + 3 + path_attribute_length
-        self.process_path_attributes(msg[withdrawn_routes_length + 4 : withdrawn_routes_length + 4 + path_attribute_length])
         self.process_NLRI(msg[ withdrawn_routes_length + 4 + path_attribute_length:])
+        self.process_path_attributes(msg[withdrawn_routes_length + 4 : withdrawn_routes_length + 4 + path_attribute_length])
 
     def process_withdrawn_routes(self,prefix_list):
         self.withdrawn_prefixes = self.get_prefixes(prefix_list)
@@ -87,9 +88,9 @@ class BGP_message:
     # implementation note:
     # avoiding the obvious recursive solution given that these lists can be quite long
     # and testing python implementation of optimising tail recursion is not in scope....
-        eprint("get_prefixes")
-        eprint( hexlify(prefix_list))
-        eprint("")
+        ## eprint("get_prefixes")
+        ## eprint( hexlify(prefix_list))
+        ## eprint("")
         prefix_list_length = len(prefix_list)
         offset = 0
         prefixes = []
@@ -105,7 +106,7 @@ class BGP_message:
                 prefix_byte_length = 1
             else:
                 prefix_byte_length = 0
-            eprint( "++ %d:%d:%d" % (offset,prefix_list_length,prefix_byte_length))
+            ## eprint( "++ %d:%d:%d" % (offset,prefix_list_length,prefix_byte_length))
             assert prefix_byte_length + offset < prefix_list_length
 
             prefix = 0
@@ -119,8 +120,8 @@ class BGP_message:
                 prefix |= struct.unpack_from('!B', prefix_list, offset=offset+4)[0]
 
             prefixes += [(prefix_length,prefix)]
-            eprint( "++ " + hexlify(prefix_list[offset:offset+ 1 + prefix_byte_length]))
-            eprint( "++ %d:%s" % (prefix_length,ip_address(prefix)))
+            ## eprint( "++ " + hexlify(prefix_list[offset:offset+ 1 + prefix_byte_length]))
+            eprint( "++ %s/%d" % (ip_address(prefix),prefix_length))
             offset += 1 + prefix_byte_length
 
         return prefixes
