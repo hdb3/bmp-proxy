@@ -32,7 +32,7 @@ def signal_handler(signum, frame):
     if LOG:
         LOG.info("Caught signal %d, exiting", signum)
     else:
-        eprint("Caught signal %d, exiting" % signum)
+        sys.stderr.write("Caught signal %d, exiting" % signum)
 
     RUNNING = False
 

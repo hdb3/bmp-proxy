@@ -4,6 +4,7 @@
 #
 
 import struct
+import sys
 from bgpparse import *
 
 BMP_Route_Monitoring = 0
@@ -27,7 +28,7 @@ class BMP_message:
 
 
         if 6 < self.msg_type:
-            eprint("msg_type out of range",self.msg_type)
+            sys.stderr.write("msg_type out of range %d" % self.msg_type)
             ## sys.exit()
             return None
 
