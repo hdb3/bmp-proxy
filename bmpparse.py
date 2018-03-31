@@ -68,11 +68,11 @@ def get_BMP_messages(msg):
                 length   = 0
                 msg_type = 0xff
 
-            if msg_len >= length + offset and 3 == self.version and msg_type < 7:
-                msgs.append(offset,length)
+            if msg_len >= length + offset and 3 == version and msg_type < 7:
+                msgs.append((offset,length))
                 offset += length
             else:
-                eprint("-- error parsing BMP messages (%d:%d:%d:%d)" % (len(msgs,msg_len,offset,length)))
+                eprint("-- error parsing BMP messages (%d:%d:%d:%d)" % (len(msgs),msg_len,offset,length))
                 return []
 
         # now process each seprate chunk as a BMP message

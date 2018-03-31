@@ -1,23 +1,18 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function
-import pprint
 import multiprocessing
 import socket
 import copy
 import time
-import re
 import sys
 from bgpparse import *
 from bmpparse import *
 
 from logger import init_mp_logger
 
-MAXM = 0x1000000
+def eprint(s):
+   sys.stderr.write(s+'\n')
 
-#from openbmp.api.parsed.message import Message
-#from openbmp.api.parsed.message import Router
-#from openbmp.api.parsed.message import Collector
-#from openbmp.api.parsed.message import MsgBusFields
+MAXM = 0x1000000
 
 class Listener(multiprocessing.Process):
 
@@ -35,12 +30,8 @@ class Listener(multiprocessing.Process):
         self.LOG = init_mp_logger("listener", self._log_queue)
         self.LOG.info("Running listener")
 
-        # wait for config to load
-        ### while not self.stopped():
-            ### pass
         if not ( self._cfg and 'listener' in self._cfg):
             sys.exit("could not load listener configuration")
-
 
         try:
 
@@ -64,7 +55,7 @@ class Listener(multiprocessing.Process):
                         break
                     else:
                         self.process_msg(msg)
-                print("%s disconnected " % address)
+                eprint("%s disconnected " % address)
 
             prev_ts = time.time()
 
@@ -79,12 +70,13 @@ class Listener(multiprocessing.Process):
     def stopped(self):
         return self._stop.is_set()
 
-    def process_msg(self, msg):
-        bmpmsg = BMP_message(msg)
-        if bmpmsg.msg_type == BMP_Statistics_Report:
-            print("-- BMP stats report rcvd, length %d" % len(msg))
-        elif bmpmsg.msg_type == BMP_Route_Monitoring:
-            bgpmsg = bmpmsg.bmp_RM_bgp_message
-            print("-- BMP RM rcvd, length %d" % len(msg))
-        else:
-            print("-- BMP non RM rcvd, BmP msg type was %d, length %d" % (bmpmsg.msg_type,len(msg)))
+    def process_msg(self, raw_msg):
+        bmpmsgs = get_BMP_messages(raw_msg)
+        for bmpmsg in bmpmsgs:
+            if bmpmsg.msg_type == BMP_Statistics_Report:
+                eprint("-- BMP stats report rcvd, length %d" % bmpmsg.length)
+            elif bmpmsg.msg_type == BMP_Route_Monitoring:
+                bgpmsg = bmpmsg.bmp_RM_bgp_message
+                ## eprint("-- BMP RM rcvd, length %d" % bmpmsg.length)
+            else:
+                eprint("-- BMP non RM rcvd, BmP msg type was %d, length %d" % (bmpmsg.msg_type,bmpmsg.length))
