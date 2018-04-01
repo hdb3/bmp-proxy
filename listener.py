@@ -44,7 +44,7 @@ class Listener(multiprocessing.Process):
             max_msg_len = 0
             while not self.stopped():
                 (clientsocket, address) = rcvsock.accept()
-                print("connection received from " , address)
+                eprint("connection received from %s:%d " % address)
                 while not self.stopped():
                     msg = clientsocket.recv(MAXM) # BGP max message size is 4096......
                     if len(msg) > max_msg_len:
@@ -55,7 +55,7 @@ class Listener(multiprocessing.Process):
                         break
                     else:
                         self.process_msg(msg)
-                eprint("%s disconnected " % address)
+                eprint("disconnected")
 
             prev_ts = time.time()
 
